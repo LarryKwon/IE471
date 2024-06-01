@@ -16,14 +16,16 @@ for file in os.listdir(data_dir):
 
 
         if "bitcoin" in file.lower():  # Assuming the 'bitcoin' keyword might be case insensitive
-            df['Date'] = df['time']
+            df['Date'] = pd.to_datetime(df['time'])
             df.set_index('Date', inplace=True)
+            df = df[df.index >=  pd.Timestamp('2018-07-01')]
             data_frames["bitcoin"] = df
         else:
-            df['Date'] = df['Date'].apply(lambda x: x.split(" ")[0].strip( ).replace("-", "."))
+            df['Date'] = pd.to_datetime(df['Date'].apply(lambda x: x.split(" ")[0].strip( )))
             df.set_index('Date', inplace=True)
+            df = df[df.index >= pd.Timestamp('2018-07-01')]
             data_frames[os.path.basename(file)] = df
-        
+
 # Perform left join using the 'bitcoin' DataFrame
 bitcoin_df = data_frames.get("bitcoin")
 
