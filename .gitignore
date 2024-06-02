@@ -1,3 +1,12 @@
-*/.ipynb_checkpoints
-*.ipynb
+
 lightning_logs/*
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Python bytecode files
+__pycache__/
+*.py[cod]
+
+# Jupyter Notebook output data
+*.h5
+*.hdf5
