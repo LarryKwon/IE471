@@ -1,5 +1,5 @@
 
-lightning_logs/*
+
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
 
