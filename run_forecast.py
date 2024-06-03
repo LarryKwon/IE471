@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
 from util import *
+import os 
 
 # 필요한 모델 로드 
 from gluonts.dataset.pandas import PandasDataset
@@ -63,20 +64,26 @@ def test_and_plot(df, models, test_gen, prediction_length=20, windows=30):
         plot_results(df, forecasts, idx)    
 
 
+
+
 if __name__ == "__main__":
     args = argparse.ArgumentParser()
     ## 데이터셋 경로 입력
     args.add_argument("--dataset_path", type=str, default='data/processed/merged_S&P 500 Financials.csv')
     
     ## 모델 선택
-    args.add_argument("--models", type=str, default='all') 
+    args.add_argument("--models", type=str, nargs='+', help="List of model YAML files")
     
     ## 이미 학습된 모델이 있으면 불러옴
     args.add_argument("--model_path", type=str, default=None) 
+    # args.add_argument("--model_path", type=str, nargs='+', help="List of model checkpoint files")
 
     ## train , test df 가져오기
+    args.add_argument("--train", type=str, default='data/processed/merged_S&P 500 Financials.csv')
+
     training_data, test_generator, df =  split_dataset()
     
     ## 선택한 모델들에 대해서 돌리기 
-    trained_models = train_models(training_data)
+    if args.train:
+        trained_models = train_models(training_data)
     forecast = test_and_plot(df, trained_models, test_generator)

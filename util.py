@@ -3,6 +3,7 @@ from easydict import EasyDict as edict
 import yaml
 import torch
 import matplotlib.pyplot as plt
+import os
 
 def load_yaml(filename):
     with open(filename, 'r') as f:
@@ -42,4 +43,12 @@ def plot_results(df, forecasts, name, target_column):
     plt.legend(["True values"], loc="upper left", fontsize="small")
     plt.show()
     plt.savefig(f"{name}")
+    
+
+
+def load_models(directory):
+    for filename in os.listdir(directory):
+        if filename.endswith(".ckpt"):
+            yield os.path.join(directory, filename)
+
     

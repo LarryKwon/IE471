@@ -8,19 +8,21 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
+import os
 
-bitcoin_data = pd.read_csv('bitcoin_bitstamp.csv')
-stock_data = pd.read_csv('composite_data.csv')
+DATA_PATH = 'data/raw_v2.0'
+bitcoin_data = pd.read_csv(os.path.join(DATA_PATH, 'bitcoin_bitstamp.csv'))
+stock_data = pd.read_csv(os.path.join(DATA_PATH,'composite_data.csv'))
 
 bitcoin_data['log_price'] = np.log(bitcoin_data['close'])
 
 stock_data['log_return'] = np.log(stock_data['Close']) - np.log(stock_data['Close'].shift(1))
 
-stock_data['realized_volatility'] = stock_data['log_return'].rolling(window=20).apply(lambda x: 14* np.sqrt(np.sum(x**2)), raw=False)
+stock_data['realized_volatility'] = stock_data['log_return'].rolling(window=20).apply(lambda x: (252/20)* np.sqrt(np.sum(x**2)))
 
 merged_data = pd.merge(bitcoin_data[['Date', 'log_price']], stock_data[['Date', 'realized_volatility']], on='Date')
 merged_data = merged_data.dropna()
-
+merged_data.to_excel('merged_data.xlsx')
 
 # In[41]:
 
