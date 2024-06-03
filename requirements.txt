@@ -3,3 +3,4 @@ gluonts[torch]
 matplotlib
 optuna
 pickle
+statsmodels
