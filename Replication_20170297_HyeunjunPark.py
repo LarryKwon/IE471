@@ -22,6 +22,7 @@ stock_data['realized_volatility'] = stock_data['log_return'].rolling(window=20).
 
 merged_data = pd.merge(bitcoin_data[['Date', 'log_price']], stock_data[['Date', 'realized_volatility']], on='Date')
 merged_data = merged_data.dropna()
+
 merged_data.to_excel('merged_data.xlsx')
 
 # In[41]:
