@@ -16,8 +16,6 @@ for file in os.listdir(DATA_PATH):
         stock_data = pd.read_csv(file_path, index_col=0).dropna()
         stock_data['log_return'] = np.log(stock_data['Close']) - np.log(stock_data['Close'].shift(1))
         stock_data['realized_volatility'] = stock_data['log_return'].rolling(window=20).apply(lambda x: (252/20)* np.sqrt(np.sum(x**2)))
-
-
         merged_data = pd.merge(bitcoin_data, stock_data, on='Date')
         merged_data = merged_data.dropna()
         
