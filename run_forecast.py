@@ -1,4 +1,6 @@
+from ast import mod
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 from util import *
@@ -8,8 +10,8 @@ import pickle
 # 필요한 모델 로드 
 from gluonts.dataset.pandas import PandasDataset
 from gluonts.dataset.split import split
-from gluonts.torch import DeepAREstimator, DLinearEstimator, TemporalFusionTransformerEstimator, PatchTSTEstimator
-# from gluonts.mx import TransformerEstimator
+from gluonts.torch import DeepAREstimator, DLinearEstimator, TemporalFusionTransformerEstimator, PatchTSTEstimator,SimpleFeedForwardEstimator
+from gluonts.mx import TransformerEstimator
 
 
 
@@ -28,6 +30,7 @@ def split_dataset(dataset_path, target_column):
     all_times = pd.date_range(start=df.index.min(), end=df.index.max(), freq='D')
     df = df.reindex(all_times)
     df = df.interpolate(method='linear')
+    df = df.astype({col: 'float32' for col in df.select_dtypes(include='float64').columns})
     dataset = PandasDataset(df, freq='D',target=target_column)
 
     # 22 년도 기준으로 데이터 분할, training dataset
@@ -48,20 +51,36 @@ def train_models(training_data, prediction_length=20, train=True):
         tftModel = TemporalFusionTransformerEstimator(
             prediction_length=prediction_length, freq="D", trainer_kwargs={"max_epochs": 2}, context_length=5*prediction_length
         ).train(training_data)
+        
         with open("model/tftModel.pkl", "wb") as f:
             pickle.dump(tftModel, f)
-        # transformerModel = TransformerEstimator(
-        #     prediction_length=prediction_length, freq="D"
-        # ).train(training_data)
+            
+        ffModel = SimpleFeedForwardEstimator(
+            prediction_length=prediction_length, trainer_kwargs={"max_epochs": 5}, context_length=5*prediction_length
+        ).train(training_data)
+        
+        with open("model/simpleFFModel.pkl", "wb") as f:
+            pickle.dump(ffModel, f)
+            
+        tfModel = TransformerEstimator(
+            prediction_length=prediction_length, freq="D", context_length=5*prediction_length
+        ).train(training_data)
+        
+        with open("model/tfModel.pkl", "wb") as f:
+            pickle.dump(tfModel, f)
+
         
     else:
         with open("model/arModel.pkl", "rb") as f:
             arModel = pickle.load(f)
         with open("model/tftModel.pkl", "rb") as f:
             tftModel = pickle.load(f)
-            
+        with open("model/simpleFFModel.pkl", "rb") as f:
+            ffModel = pickle.load(f)
+        with open("model/tfModel.pkl", "rb") as f:
+            tfModel = pickle.load(f)
         
-    return [arModel, tftModel] 
+    return [arModel, tftModel, ffModel, tfModel] 
 #  trained 된 모델들을 테스트 합니다. 
 def test_and_plot(df, models, test_gen, target_column, prediction_length=20, windows=1, ):
     # Generate test instances
@@ -80,7 +99,8 @@ def test_and_combine_forecasts(df, models, test_gen, target_column, prediction_l
     print(prediction_length)
     print(windows)
     test_data = test_gen.generate_instances(prediction_length=prediction_length, windows=windows)
-
+    
+    model_predicitons = []
     for idx, model in enumerate(models):
         combined_forecasts = pd.Series(dtype='float64')
         forecasts = list(model.predict(test_data.input))
@@ -90,7 +110,8 @@ def test_and_combine_forecasts(df, models, test_gen, target_column, prediction_l
             combined_forecasts = pd.concat([combined_forecasts, forecast_series])
 
         plt.figure(figsize=(20, 15))
-        print(combined_forecasts)
+        # print(combined_forecasts)
+        model_predicitons.append((combined_forecasts, model))
         plotting_df = df.loc['2019-01-01':, [target_column]]
         plotting_df.plot(color="black")
         plt.plot(combined_forecasts.index, combined_forecasts, color="red", label="Combined Forecast")
@@ -98,10 +119,19 @@ def test_and_combine_forecasts(df, models, test_gen, target_column, prediction_l
         plt.title(f'Combined Forecast vs Actual')
         plt.savefig(f"{idx}.png")    
         plt.show()
-    return combined_forecasts
+    
+    return model_predicitons
 
-
-
+def evaluate(df, target_column, model_predictions):
+    test_data = df.loc['2019-01-02':, [target_column]][target_column]
+    for prediction in model_predictions:
+        model = prediction[1]
+        forecast = prediction[0]
+        print(f"Model: {model.prediction_net.__class__.__name__}")
+        print(f'SSE: {((forecast-test_data)**2).sum()}')
+        print(f'MSE: {((forecast-test_data)**2).mean()}')
+        print(f"MAE: {((forecast - test_data).abs().mean())}")
+        print(f"MAPE: {((forecast - test_data).abs() / test_data * 100).mean()}")
 
 if __name__ == "__main__":
 
@@ -127,8 +157,9 @@ if __name__ == "__main__":
     training_data, test_generator, df =  split_dataset(dataset_path=DATASET_PATH, target_column=TARGET_COLUMN)
     print(len(training_data))
 
-    train_models = train_models(training_data,prediction_length=1, train=True)
-    test_and_combine_forecasts(df, train_models, test_generator, TARGET_COLUMN, prediction_length=1)
+    train_models = train_models(training_data,prediction_length=1, train=False)
+    model_predictions = test_and_combine_forecasts(df, train_models, test_generator, TARGET_COLUMN, prediction_length=1)
+    evaluate(df,TARGET_COLUMN, model_predictions)
     # ## 선택한 모델들에 대해서 돌리기 
     # if args.train:
     #     trained_models = train_models(training_data)
