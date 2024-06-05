@@ -128,6 +128,7 @@ def evaluate(df, target_column, model_predictions):
         model = prediction[1]
         forecast = prediction[0]
         print(f"Model: {model.prediction_net.__class__.__name__}")
+        print(f"RRMSE: { np.sqrt(((forecast-test_data)**2).mean() / (test_data **2).sum()) }")
         print(f'SSE: {((forecast-test_data)**2).sum()}')
         print(f'MSE: {((forecast-test_data)**2).mean()}')
         print(f"MAE: {((forecast - test_data).abs().mean())}")
