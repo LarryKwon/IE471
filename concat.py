@@ -8,7 +8,7 @@ os.makedirs(OUTPUT_PATH, exist_ok=True)
 bitcoin_data = pd.read_csv(os.path.join(DATA_PATH, 'bitcoin_bitstamp.csv'), index_col=0)
 bitcoin_data['log_price'] = np.log(bitcoin_data['close'])
 # Read and process CSV files
-for file in os.listdir(DATA_PATH):
+for file in os.listdir(path=DATA_PATH):
     if file.endswith(".csv") and 'bitcoin' not in file.lower():
         sector_name = file.split("_")[0]
         
