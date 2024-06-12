@@ -55,20 +55,20 @@ def train_models(sector_name, training_data, prediction_length=20, train=True):
 
     # ## Estimator 는 Predic
         arModel = DeepAREstimator(
-            prediction_length=prediction_length, freq="D", trainer_kwargs={"max_epochs": 5}, context_length=30
+            prediction_length=prediction_length, freq="D", trainer_kwargs={"max_epochs": 30}, context_length=30
         ).train(training_data)
         with open(directory_path+"arModel.pkl", "wb") as f:
             pickle.dump(arModel, f)
 
         tftModel = TemporalFusionTransformerEstimator(
-            prediction_length=prediction_length, freq="D", trainer_kwargs={"max_epochs": 5}, context_length=30
+            prediction_length=prediction_length, freq="D", trainer_kwargs={"max_epochs": 30}, context_length=30
         ).train(training_data)
         
         with open(directory_path+"tftModel.pkl", "wb") as f:
             pickle.dump(tftModel, f)
             
         ffModel = SimpleFeedForwardEstimator(
-            prediction_length=prediction_length, trainer_kwargs={"max_epochs": 5}, context_length=30
+            prediction_length=prediction_length, trainer_kwargs={"max_epochs": 30}, context_length=30
         ).train(training_data)
         
         with open(directory_path+"simpleFFModel.pkl", "wb") as f:
@@ -130,7 +130,7 @@ def plot_results(df, forecasts, model, target_column, figure_path):
         # print(combined_forecasts)
         plotting_df = df.loc['2021-01-01':, [target_column]]
         plotting_df.plot(color="black")
-        plt.plot(forecasts.index, forecasts, color="red", label="Combined Forecast")
+        plt.plot(forecasts.index, forecasts, color="blue", label="Combined Forecast")
         plt.legend(["True values", "Combined Forecast"], loc="upper left", fontsize="small")
         plt.title(f'Combined Forecast vs Actual')
         plt.savefig(os.path.join(figure_path,f'{model.prediction_net.__class__.__name__}.png'))
@@ -187,7 +187,7 @@ if __name__ == "__main__":
     # args.add_argument("--train", type=str, default='data')
 
     TARGET_COLUMN = 'composite_realized_volatility'
-    DATASET_DIR_PATH = 'data/processed_v2.0/'
+    DATASET_DIR_PATH = 'data/processed_v3.0/'
     DATASET_LIST = []
     for file in os.listdir(path=DATASET_DIR_PATH):
         if file.endswith(".csv"):
@@ -200,13 +200,16 @@ if __name__ == "__main__":
     MODEL_SAVE_PATH = 'model/'
     
     for DATASET_PATH in DATASET_LIST:
+        
         sector_name = DATASET_PATH.split(DATASET_DIR_PATH)[1].split('.csv')[0]
+        if sector_name != 'merged_composite_data':
+            continue
         print(sector_name)
         try:
             os.makedirs(sector_name, exist_ok=True)
-            os.makedirs(os.path.join(sector_name,MODEL_SAVE_PATH), exist_ok=True)
-            os.makedirs(os.path.join(sector_name,FIG_SAVE_PATH),exist_ok=True)
-            os.makedirs(os.path.join(sector_name,METRIC_SAVE_PATH),exist_ok=True)
+            os.makedirs(os.path.join(sector_name, 'predict_30', MODEL_SAVE_PATH), exist_ok=True)
+            os.makedirs(os.path.join(sector_name,'predict_30', FIG_SAVE_PATH),exist_ok=True)
+            os.makedirs(os.path.join(sector_name,'predict_30', METRIC_SAVE_PATH),exist_ok=True)
 
 
             print(f"Directory '{sector_name}' is created or already exists.")
@@ -219,8 +222,8 @@ if __name__ == "__main__":
         training_data, test_generator, df =  split_dataset(dataset_path=DATASET_PATH, target_column=TARGET_COLUMN)
         # print(len(training_data))
 
-        trained_models = train_models(sector_name, training_data=training_data, prediction_length=1, train=True)
-        model_predictions = test_and_combine_forecasts(df, trained_models, test_generator, TARGET_COLUMN, prediction_length=1)
+        trained_models = train_models(sector_name, training_data=training_data, prediction_length=10, train=True)
+        model_predictions = test_and_combine_forecasts(df, trained_models, test_generator, TARGET_COLUMN, prediction_length=10)
         for prediction in model_predictions:
             model = prediction[1]
             model_name = model.prediction_net.__class__.__name__
