@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 import sys
-sys.path.append('../../')
+# sys.path.append('../../')
 # from util import *
 import os 
 import pickle
@@ -46,7 +46,7 @@ def split_dataset(dataset_path, target_column, feature_columns=[]):
 # 모델을 학습합니다. 
 def train_models(sector_name, training_data, prediction_length=20, train=True):
     if train:
-        directory_path = f'{sector_name}/model/'
+        directory_path = f'{sector_name}/model_pretrained/'
         try:
             os.makedirs(directory_path, exist_ok=True)
             print(f"Directory '{directory_path}' is created or already exists.")
@@ -93,7 +93,7 @@ def train_models(sector_name, training_data, prediction_length=20, train=True):
         # with open(directory_path+"tfModel.pkl", "rb") as f:
         #     tfModel = pickle.load(f)
         
-    return [arModel, tftModel, ffModel]#, tfModel] 
+    return [arModel, tftModel, ffModel] 
 #  trained 된 모델들을 테스트 합니다. 
 def test_and_plot(df, models, test_gen, target_column, prediction_length=20, windows=1, ):
     # Generate test instances
@@ -172,22 +172,9 @@ def save_evaluate(results, output_path, output_name='evaluation_results.txt', ):
 
 if __name__ == "__main__":
 
-    # args = argparse.ArgumentParser()
-    # # ## 데이터셋 경로 입력
-    # args.add_argument("--dataset_path", type=str, default='data/processed/merged_S&P 500 Financials.csv')
-    
-    # # ## 모델 선택
-    # args.add_argument("--models", type=str, nargs='+', help="List of model YAML files")
-    
-    # ## 이미 학습된 모델이 있으면 불러옴
-    # args.add_argument("--model_path", type=str, default=None) 
-    # args.add_argument("--model_path", type=str, nargs='+', help="List of model checkpoint files")
-
-    # # ## train , test df 가져오기
-    # args.add_argument("--train", type=str, default='data')
 
     TARGET_COLUMN = 'composite_realized_volatility'
-    DATASET_DIR_PATH = 'data/processed_v2.0/'
+    DATASET_DIR_PATH = 'data/processed_v3.0/'
     DATASET_LIST = []
     for file in os.listdir(path=DATASET_DIR_PATH):
         if file.endswith(".csv"):
@@ -203,10 +190,10 @@ if __name__ == "__main__":
         sector_name = DATASET_PATH.split(DATASET_DIR_PATH)[1].split('.csv')[0]
         print(sector_name)
         try:
-            os.makedirs(sector_name, exist_ok=True)
-            os.makedirs(os.path.join(sector_name,MODEL_SAVE_PATH), exist_ok=True)
-            os.makedirs(os.path.join(sector_name,FIG_SAVE_PATH),exist_ok=True)
-            os.makedirs(os.path.join(sector_name,METRIC_SAVE_PATH),exist_ok=True)
+            os.makedirs(os.path.join(os.path.dirname(__file__), sector_name, exist_ok=True))
+            os.makedirs(os.path.join(os.path.dirname(__file__), sector_name,MODEL_SAVE_PATH), exist_ok=True)
+            os.makedirs(os.path.join(os.path.dirname(__file__), sector_name,FIG_SAVE_PATH),exist_ok=True)
+            os.makedirs(os.path.join(os.path.dirname(__file__), sector_name,METRIC_SAVE_PATH),exist_ok=True)
 
 
             print(f"Directory '{sector_name}' is created or already exists.")
@@ -229,6 +216,3 @@ if __name__ == "__main__":
             plot_results(df,forecast, prediction[1], TARGET_COLUMN, os.path.join(sector_name,FIG_SAVE_PATH))
             metrics = evaluate(df,TARGET_COLUMN, model_predictions)
             save_evaluate(metrics,os.path.join(sector_name,'metric'), f'{model_name}_evaluation_results.txt',)
-    # ## 선택한 모델들에 대해서 돌리기 
-    # if args.train:
-    #     trained_models = train_models(training_data)
