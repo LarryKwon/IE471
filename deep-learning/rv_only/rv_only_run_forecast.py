@@ -13,18 +13,19 @@ import pickle
 from gluonts.dataset.pandas import PandasDataset
 from gluonts.dataset.split import split
 from gluonts.torch import DeepAREstimator, DLinearEstimator, TemporalFusionTransformerEstimator, PatchTSTEstimator,SimpleFeedForwardEstimator
-# from gluonts.mx import TransformerEstimator
+
+def create_directory(path):
+    try:
+        os.makedirs(path, exist_ok=True)
+        print(f"Directory '{path}' is created or already exists.")
+    except Exception as e:
+        print(f"An error occurred while creating directory '{path}': {e}")
 
 
 
 #   해당 경로에 있는 데이터셋을 받아 train dataset 과 test Dataset 으로 나눕니다.
-def split_dataset(dataset_path, target_column, feature_columns=[]):
-    df = pd.read_csv(
-        dataset_path,
-        index_col=0,
-        parse_dates=True,
-    )
-   
+def split_dataset(df, target_column, feature_columns=[]):
+    
     duplicate_rows = df[df.duplicated(keep=False)]
     df = df.drop_duplicates()
 
@@ -43,57 +44,46 @@ def split_dataset(dataset_path, target_column, feature_columns=[]):
     
     return training_data, test_gen, df
 
-# 모델을 학습합니다. 
-def train_models(sector_name, training_data, prediction_length=20, train=True):
+# 모델을 학습합니다. EPOCH 는  50으로 고정합니다
+def train_models( training_data, model_path, prediction_length=20, max_epochs = 50,context_length=30,  train=True):
     if train:
-        directory_path = f'{sector_name}/model/'
-        try:
-            os.makedirs(directory_path, exist_ok=True)
-            print(f"Directory '{directory_path}' is created or already exists.")
-        except Exception as e:
-            print(f"An error occurred while creating directory '{directory_path}': {e}")
+        create_directory(model_path)
 
     # ## Estimator 는 Predic
         arModel = DeepAREstimator(
-            prediction_length=prediction_length, freq="D", trainer_kwargs={"max_epochs": 30}, context_length=30
+            prediction_length=prediction_length, freq="D", trainer_kwargs={"max_epochs": max_epochs}, context_length=context_length
         ).train(training_data)
-        with open(directory_path+"arModel.pkl", "wb") as f:
+        with open(model_path+"arModel.pkl", "wb") as f:
             pickle.dump(arModel, f)
 
         tftModel = TemporalFusionTransformerEstimator(
-            prediction_length=prediction_length, freq="D", trainer_kwargs={"max_epochs": 30}, context_length=30
+            prediction_length=prediction_length, freq="D", trainer_kwargs={"max_epochs": max_epochs}, context_length=context_length
         ).train(training_data)
         
-        with open(directory_path+"tftModel.pkl", "wb") as f:
+        with open(model_path+"tftModel.pkl", "wb") as f:
             pickle.dump(tftModel, f)
             
         ffModel = SimpleFeedForwardEstimator(
-            prediction_length=prediction_length, trainer_kwargs={"max_epochs": 30}, context_length=30
+            prediction_length=prediction_length, trainer_kwargs={"max_epochs": max_epochs}, context_length=context_length
         ).train(training_data)
         
-        with open(directory_path+"simpleFFModel.pkl", "wb") as f:
+        with open(model_path+"simpleFFModel.pkl", "wb") as f:
             pickle.dump(ffModel, f)
             
-        # tfModel = TransformerEstimator(
-        #     prediction_length=prediction_length, freq="D", context_length=30
-        # ).train(training_data)
-        
-        # with open(directory_path+"tfModel.pkl", "wb") as f:
-        #     pickle.dump(tfModel, f)
+
 
         
     else:
-        directory_path = f'{sector_name}/model/'
-        with open(directory_path+"arModel.pkl", "rb") as f:
+        # directory_path = f'{sector_name}/model/'
+        with open(model_path+"arModel.pkl", "rb") as f:
             arModel = pickle.load(f)
-        with open(directory_path+"tftModel.pkl", "rb") as f:
+        with open(model_path+"tftModel.pkl", "rb") as f:
             tftModel = pickle.load(f)
-        with open(directory_path+"simpleFFModel.pkl", "rb") as f:
+        with open(model_path+"simpleFFModel.pkl", "rb") as f:
             ffModel = pickle.load(f)
-        # with open(directory_path+"tfModel.pkl", "rb") as f:
-        #     tfModel = pickle.load(f)
-        
-    return [arModel, tftModel, ffModel]#, tfModel] 
+
+    return [arModel, tftModel, ffModel]
+
 #  trained 된 모델들을 테스트 합니다. 
 def test_and_plot(df, models, test_gen, target_column, prediction_length=20, windows=1, ):
     # Generate test instances
@@ -125,12 +115,12 @@ def test_and_combine_forecasts(df, models, test_gen, target_column, prediction_l
     
     return model_predicitons
 
-def plot_results(df, forecasts, model, target_column, figure_path):
+def plot_results(df, forecasts, model, target_column, figure_path, color="red"):
         plt.figure(figsize=(20, 15))
         # print(combined_forecasts)
         plotting_df = df.loc['2021-01-01':, [target_column]]
         plotting_df.plot(color="black")
-        plt.plot(forecasts.index, forecasts, color="blue", label="Combined Forecast")
+        plt.plot(forecasts.index, forecasts, color=color, label="Combined Forecast")
         plt.legend(["True values", "Combined Forecast"], loc="upper left", fontsize="small")
         plt.title(f'Combined Forecast vs Actual')
         plt.savefig(os.path.join(figure_path,f'{model.prediction_net.__class__.__name__}.png'))
@@ -172,19 +162,6 @@ def save_evaluate(results, output_path, output_name='evaluation_results.txt', ):
 
 if __name__ == "__main__":
 
-    # args = argparse.ArgumentParser()
-    # # ## 데이터셋 경로 입력
-    # args.add_argument("--dataset_path", type=str, default='data/processed/merged_S&P 500 Financials.csv')
-    
-    # # ## 모델 선택
-    # args.add_argument("--models", type=str, nargs='+', help="List of model YAML files")
-    
-    # ## 이미 학습된 모델이 있으면 불러옴
-    # args.add_argument("--model_path", type=str, default=None) 
-    # args.add_argument("--model_path", type=str, nargs='+', help="List of model checkpoint files")
-
-    # # ## train , test df 가져오기
-    # args.add_argument("--train", type=str, default='data')
 
     TARGET_COLUMN = 'composite_realized_volatility'
     DATASET_DIR_PATH = 'data/processed_v3.0/'
@@ -193,45 +170,60 @@ if __name__ == "__main__":
         if file.endswith(".csv"):
             file_path = os.path.join(DATASET_DIR_PATH, file)
             DATASET_LIST.append(file_path)
-    
+
+        
+    PREDICTION_LEN = 10  ## <== 이후 며칠을 예측할지를 결정하고 싶으면 이 파라미터만 바꾸면 됩니다. 
+    CONTEXT_LEN = 50 ## <== 이전의 며칠을 참고하고 싶은지 (== 윈도우 크기)를 결정하고 싶으면 이 파라미터만 바꾸면 됩니다. 
+    COLOR = "blue" 
     CKPT_SAVE_PATH = 'model_checkpoints/'
     FIG_SAVE_PATH = 'fig/'
     METRIC_SAVE_PATH = 'metric/'
     MODEL_SAVE_PATH = 'model/'
     
-    for DATASET_PATH in DATASET_LIST:
-        
-        sector_name = DATASET_PATH.split(DATASET_DIR_PATH)[1].split('.csv')[0]
-        if sector_name != 'merged_composite_data':
-            continue
-        print(sector_name)
-        try:
-            os.makedirs(sector_name, exist_ok=True)
-            os.makedirs(os.path.join(sector_name, 'predict_30', MODEL_SAVE_PATH), exist_ok=True)
-            os.makedirs(os.path.join(sector_name,'predict_30', FIG_SAVE_PATH),exist_ok=True)
-            os.makedirs(os.path.join(sector_name,'predict_30', METRIC_SAVE_PATH),exist_ok=True)
 
+    # for DATASET_PATH in DATASET_LIST:
+    for dataset_file in DATASET_LIST:
+        dataset_path = os.path.join(DATASET_DIR_PATH, dataset_file)
+        sector_name = dataset_file.split(DATASET_DIR_PATH)[1].split('.csv')[0]
+        save_dir = os.path.join(os.path.dirname(__file__), sector_name,  f'{PREDICTION_LEN}D')
+
+        if "merged_composite_data" not in sector_name:         # 시간 없으니까 composite 데이터만 일단 돌렸어요
+            continue
+        
+        FIG_SAVE_PATH = os.path.join(save_dir, 'fig/')
+        METRIC_SAVE_PATH = os.path.join(save_dir, 'metric/')
+        MODEL_SAVE_PATH = os.path.join(save_dir, 'model/')
+
+        try:
+            os.makedirs(MODEL_SAVE_PATH, exist_ok=True)
+            os.makedirs(FIG_SAVE_PATH, exist_ok=True)
+            os.makedirs(METRIC_SAVE_PATH, exist_ok=True)
 
             print(f"Directory '{sector_name}' is created or already exists.")
         except Exception as e:
             print(f"An error occurred while creating directory '{sector_name}': {e}")
         
-        df = pd.read_csv(DATASET_PATH)
+        df = pd.read_csv(
+            dataset_file,
+            index_col=0,
+            parse_dates=True,
+        )
         TARGET_COLUMN = [column for column in df.columns if 'realized_volatility' in column][0]
         print(TARGET_COLUMN)
-        training_data, test_generator, df =  split_dataset(dataset_path=DATASET_PATH, target_column=TARGET_COLUMN)
-        # print(len(training_data))
+        print(" before spliting len(df.columns", len(df.columns))
 
-        trained_models = train_models(sector_name, training_data=training_data, prediction_length=10, train=True)
-        model_predictions = test_and_combine_forecasts(df, trained_models, test_generator, TARGET_COLUMN, prediction_length=10)
+        training_data, test_generator, df =  split_dataset(df, target_column=TARGET_COLUMN)
+        print("after spliting len(df.columns", len(df.columns))
+      # print(len(training_data))
+
+        trained_models = train_models(training_data, MODEL_SAVE_PATH, prediction_length=PREDICTION_LEN, context_length=CONTEXT_LEN, train=True)
+        model_predictions = test_and_combine_forecasts(df, trained_models, test_generator, TARGET_COLUMN, prediction_length=PREDICTION_LEN)
         for prediction in model_predictions:
             model = prediction[1]
             model_name = model.prediction_net.__class__.__name__
             forecast = prediction[0]
-            forecast.to_csv(os.path.join(sector_name,f'{sector_name}_{model_name}_forecast.csv'))
-            plot_results(df,forecast, prediction[1], TARGET_COLUMN, os.path.join(sector_name,FIG_SAVE_PATH))
+            forecast.to_csv(os.path.join(save_dir, f'{sector_name}_{model_name}_forecast.csv'))
+            plot_results(df,forecast, prediction[1], TARGET_COLUMN, FIG_SAVE_PATH, color=COLOR)
             metrics = evaluate(df,TARGET_COLUMN, model_predictions)
-            save_evaluate(metrics,os.path.join(sector_name,'metric'), f'{model_name}_evaluation_results.txt',)
-    # ## 선택한 모델들에 대해서 돌리기 
-    # if args.train:
-    #     trained_models = train_models(training_data)
+            save_evaluate(metrics , METRIC_SAVE_PATH, f'{model_name}_evaluation_results.txt',)
+
